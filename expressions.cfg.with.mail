@@ -1,0 +1,22 @@
+# Expression Name;Domain Name;DataLevel(True|False);Regex
+DIRECCION_DATA;DM_DIRECCION;true;'^(CALLE|Calle|calle|C\.|AVENIDA|Avenida|avenida|av|AV\.|RUTA|Ruta|RTA\.|Rta\.|autopista|AUTOPISTA|Autopista|Autop\.)\s?([a-zA-Z_\s]+)[, ]*+(\d+)*\s?([-\/\d\sa-zDA-Z]+)?$'
+CP_DATA;DM_CP;true;'^([A-HJ-TP-Z]{1}\d{4}[A-Z]{3}|[a-z]{1}\d{4}[a-hj-tp-z]{3})$'
+CUILT_DATA;DM_CUILT;true;'^(20|23|24|27|30|33|34)(\D)?[0-9]{8}(\D)?[0-9]$'
+DNI_DATA;DM_DNI;true;^(\d{2}\.{1}\d{3}\.\d{3})|(\d{2}\s{1}\d{3}\s\d{3})$
+TELEFONO_DATA;DM_TELEFONO;true;'^(?:(?:00)?549?)?0?(?:11|[2368]\d)(?:(?=\d{0,2}15)\d{2})??\d{8}$'
+DNI_METADATA;DM_DNI;true;[Nn]([Uu][Mm][Ee])?[Rr]([Oo])?[^A-Za-z0-9]?[Dd][Nn][Ii]|^[Dd][Nn][Ii]$
+NOMBRE_METADATA;DM_NOMBRE;false;(^([Pp][Rr][Ii][Mm][Ee][Rr])?([Uu][Ll][Tt][Ii][Mm][Oo])?[^A-Za-z0-9]?[Nn][Oo][Mm][Bb][Rr][Ee]$)|(^[Ss][Oo][Bb][Rr][Ee][Nn][Oo][Mm][Bb][Rr][Ee]$)|(^[Nn][Oo][Mm][Ee]|[Nn][Oo][Mm]$)
+APELLIDO_METADATA;DM_APELLIDO;false;(^([Pp][Rr][Ii][Mm][Ee][Rr])?([Uu][Ll][Tt][Ii][Mm][Oo])?[^A-Za-z0-9]?[Aa][Pp][Ee][Ll]{2}[Ii][Dd][Oo]$)|(^[Aa][Pp][Ee]$)
+DIRECCION_METADATA;DM_DIRECCION;false;(.*[Dd][Ii][Rr][Ee][Cc][Cc][Ií][Oo][Nn].*|[Dd][Ii][Rr][Ee]|[Dd][Ii][Rr])
+CUIDAD_METADATA;DM_CUIDAD;false;(.*[Cc][Ii][Uu][Dd][Aa][Dd].*)|(Cd.)
+PROVINCIA_METADATA;DM_PROVINCIA;false;(.*[Pp][Rr][Oo][Vv][Ii][Nn][Cc][Ii][Aa].*)|(.*[Jj][Uu][Rr][Ii][Ss][Dd][Ii][Cc]{2}[Ii][Ooó][Nn].*)$
+CP_METADATA;DM_CP;false;'(.*[^A-Za-z0-9]([Cc][Pp])[^A-Za-z0-9].*)|([Cc][Ooó][Dd][Ii][Gg][Oo].*[Pp][Oo][Ss][Tt][Aa][Ll])'
+TELEFONO_METADATA;DM_TELEFONO;false;(.*[Tt][Ee][Ll][Eeé][Ff][Oo][Nn][Oo].*)
+CELULAR_METADATA;DM_TELEFONO;false;(^.*[Cc][Ee][Ll]([Uu][Ll][Aa][Rr].*)?.*$)|(^[Cc][Oo][Nn][Tt][Aa][Cc][Tt][Oo]$)|(^[Cc][Ee][Ll][Uu]$)
+USUARIO_METADATA;DM_USUARIO;false;(.*[Ll][Oo][Gg][Ii][Nn].*)|(.*[Uu][Ss][Uu][Aa][Rr][Ii][Oo].*)
+EMPRESA_METADATA;DM_EMPRESA;false;(.*[Rr][Aa][Zz][Ooó][Nn][^A-Za-z0-9]?[Ss][Oo][Cc][Ii][Aa][Ll].*)|(.*([Ee][Mm][Pp][Rr][Ee][Ss][Aa])|[Cc][Oo][Mm][Pp][Aa][ÑNnñ][Ii][Aa].*)
+PASAPORTE_METADATA;DM_PASAPORTE;false;(.*[Pp][Aa][Ss][Aa][Pp][Oo][Rr][Tt][Ee].*)
+CUENTA_METADATA;DM_CUENTA;false;(^.*[Cc][Uu][Ee][Nn][Tt][Aa].*$)|(^.*[Cc][Tt][Aa].*$)
+CUILT_METADATA;DM_CUILT;false;(.*[Pp][Aa][Ss][Aa][Pp][Oo][Rr][Tt][Ee].*)|([Cc][Uu][Ii][Ll])|([Cc][Uu][Ii][Tt])|([Cc][Gg][Cc])
+MAIL_DATA;DM_MAIL;false;[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}
+MAIL_METADATA;DM_MAIL;false;(.*[Cc][Oo][Rr]{2}[Ee][Oo][^A-Za-z0-9]?[Ee][Ll][Ee][Cc][Tt][Rr][Ooó][Nn][Ii][Cc][Oo].*)|(.*([Mm][Aa][Ii][Ll]).*)
