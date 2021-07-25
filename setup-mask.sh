@@ -2,50 +2,45 @@
 #
 # setup_mask.sh
 # Created: Paulo Victor Maluf - 09/2019
+# Updated for Hispanic Countries by: Javier Barthe - 07/2021
 #
-# Parameters:
-#
-#   masking_setup.sh --help
-#
-#    Parameter             Short Description                                                        Default
-#    --------------------- ----- ------------------------------------------------------------------ ---------------
-#    --profile-name           -p Profile name                                                       LPDP
-#    --application-name       -a Application Name
-#    --environment-name       -e Environment Name
-#    --expressions-file       -f Delimiter file with: ExpressionName;DomainName;level;Regex         expressions.cfg               
-#    --domains-file           -d Delimiter file with: Domain Name;Classification;Algorithm          domains.cfg 
-#    --connection-file        -c Delimiter file with: connectorName;databaseType;environmentId;     connections.cfg
-#                                                     host;password;port;schemaName;sid;username 
-#    --masking-engine         -m Masking Engine Address 
-#    --help                   -h help
-#
-#   Ex.: 
-#   setup_mask.sh --profile-name LPDP --application-name HR --environment-name HR --expressions-file ./expressions.cfg  \
-#                 --domains-file ./domains.cfg --connection-file ./connections.cfg --masking-engine 172.168.8.128
-#   
-#   setup_mask.sh --connection-file ./connections.cfg -m 172.168.8.128 --environment-name HR
-#
-#	./setup-mask.sh -p LPDP -f ./expressions.cfg -d domains.cfg -m 192.168.0.174
+#   No utiliza ningun parametro, todo es tomado desde CFG File
+#   Ejemplo de Ejecución: ./setup-mask.sh
 # Changelog:
 #
 # Date       Author              Description
 # ---------- ------------------- ----------------------------------------------------
+#  07/2021    Javier Barthe       Primera versión con CFG File. Sin parametros.
 #====================================================================================
 
 ################################
-# VARIAVEIS GLOBAIS            #
+# CARGA VARIABLES DE CFG       #
 ################################
-USERNAME="Admin"
-PASSWORD="Admin-12"
-LAST=".last"
-PROFILENAME="LPDP"
-
+while read line
+do
+  var=$(echo $line | awk -F= '{print $1}')
+  value=$(echo $line | awk -F= '{print $2}')
+  export "$var"="$value"
+done < <(cat ./setup.cfg |grep -v "#")
 ################################
-# FUNCOES                      #
+# CONFIGURA CURL Y URL A HTTPS #
+################################
+case $HTTPS in
+  "TRUE")
+   CURL="curl -k"
+   MASKING_ENGINE="https://${MASKING_ENGINE}/masking/api"
+    ;;
+  "FALSE")
+   CURL="curl"
+   MASKING_ENGINE="http://${MASKING_ENGINE}/masking/api"
+    ;;
+esac
+################################
+# FUNCIONES                    #
 ################################
 help()
 {
-  head -33 $0 | tail -31
+  head -10 $0 | tail -31
   exit
 }
 
@@ -72,8 +67,8 @@ check_error() {
 
 # Login and set the correct $AUTH_HEADER.
 login() {
-echo "* logging in..."
-LOGIN_RESPONSE=$(curl -s -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- $MASKING_ENGINE/login <<EOF
+echo "* Accediendo al Masking Engine (login)..."
+LOGIN_RESPONSE=$($CURL -s -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- $MASKING_ENGINE/login <<EOF
 {
     "username": "$USERNAME",
     "password": "$PASSWORD"
@@ -88,21 +83,20 @@ EOF
 create_application(){
 APPLICATIONNAME=${1}
 
-curl -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/applications <<EOF
+$CURL -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/applications <<EOF
 {
   "applicationName": "${APPLICATIONNAME}"
 }
 EOF
 }
-
+# create environment for app 1 only, if needed for another specific app the app id needs to be sent on body for that first is needed to look for the app id or get_appid
 create_environment(){
 ENVIRONMENTNAME=${1}
-APPLICATIONNAME=${2}
 
-curl -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/environments <<EOF
+$CURL -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/environments <<EOF
 {
   "environmentName": "${ENVIRONMENTNAME}",
-  "application": "${APPLICATIONNAME}",
+  "applicationId": "1",
   "purpose": "MASK"
 }
 EOF
@@ -110,7 +104,7 @@ EOF
 
 get_environmentid(){
 ENVIRONMENTNAME=${1}
-RESPONSE=$(curl -s -X GET -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' ${MASKING_ENGINE}/environments)
+RESPONSE=$($CURL -s -X GET -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' ${MASKING_ENGINE}/environments)
 check_error ${RESPONSE}
 
 ENVIRONMENTID=$(echo ${RESPONSE} | ${JQ} -r ".responseList[] | select(.environmentName == \"${ENVIRONMENTNAME}\") | .environmentId")
@@ -124,7 +118,7 @@ EXPRESSNAME=${2}
 REGEXP=${3}
 DATALEVEL=${4}
 
-curl -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/profile-expressions <<EOF
+$CURL -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/profile-expressions <<EOF
 {
   "domainName": "${DOMAIN}",
   "expressionName": "${EXPRESSNAME}",
@@ -139,7 +133,7 @@ NEW_DOMAIN=${1}
 CLASSIFICATION=${2}
 ALGORITHM=${3}
 
-curl -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/domains <<EOF
+$CURL -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/domains <<EOF
 {
   "domainName": "${NEW_DOMAIN}",
   "classification": "${CLASSIFICATION}",
@@ -152,7 +146,7 @@ add_profileset(){
 PROFILENAME=${1}
 EXPRESSID=${2}
 
-curl -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/profile-sets <<EOF
+$CURL -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/profile-sets <<EOF
 {
   "profileSetName": "${PROFILENAME}",
   "profileExpressionIds": [ ${EXPRESSID} ]
@@ -173,7 +167,7 @@ SCHEMANAME=${9}
 
 [ "${DATABASETYPE}." == "ORACLE." ] && SID="\"sid\": \"${SID}\"," || SID="\"databaseName\": \"${SID}\","
 
-curl -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/database-connectors <<EOF
+$CURL -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/database-connectors <<EOF
 {
   "connectorName": "${CONNECTORNAME}",
   "databaseType": "${DATABASETYPE}",
@@ -190,7 +184,7 @@ EOF
 
 get_connectorid(){
 CONNECTORNAME=${1}
-CONNECTORLIST=$(curl -s -X GET -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' ${MASKING_ENGINE}/database-connectors)
+CONNECTORLIST=$($CURL -s -X GET -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' ${MASKING_ENGINE}/database-connectors)
 CONNECTORID=$(echo ${CONNECTORLIST} | ${JQ} -r ".responseList[] | select(.connectorName == \"${CONNECTORNAME}\") | .databaseConnectorId")
 echo ${CONNECTORID}
 }
@@ -199,7 +193,7 @@ create_ruleset(){
 RULESETNAME=${1}
 DATABASECONNECTORID=${2}
 
-curl -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/database-rulesets <<EOF
+$CURL -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/database-rulesets <<EOF
 {
   "rulesetName": "${RULESETNAME}",
   "databaseConnectorId": ${DATABASECONNECTORID}
@@ -209,7 +203,7 @@ EOF
 
 get_rulesetid(){
   RULESETNAME=${1}
-  RET=$(curl -s -X GET -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' ${MASKING_ENGINE}/database-rulesets)
+  RET=$($CURL -s -X GET -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' ${MASKING_ENGINE}/database-rulesets)
   check_error ${RET}
   RESULTSETID=$(echo ${RET} | ${JQ} -r ".responseList[] | select(.rulesetName == \"${RULESETNAME}\") | .databaseRulesetId")
   echo ${RESULTSETID}
@@ -222,7 +216,7 @@ DATABASETYPE=${3}
 
 [ "${DATABASETYPE}." == "ORACLE." ] && ROWID="\"keyColumn\": \"ROWID\","
 
-curl -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/table-metadata <<EOF
+$CURL -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/table-metadata <<EOF
 {
   "tableName": "${TABLENAME}",
   ${ROWID}
@@ -233,7 +227,7 @@ EOF
 
 get_tables(){
   CONNECTORID=${1}
-  RET=$(curl -s -X GET -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' ${MASKING_ENGINE}/database-connectors/${CONNECTORID}/fetch)
+  RET=$($CURL -s -X GET -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' ${MASKING_ENGINE}/database-connectors/${CONNECTORID}/fetch)
   check_error ${RET}
   TABLES=$(echo ${RET} | ${JQ} ".[]" | xargs)
   echo ${TABLES}
@@ -242,7 +236,7 @@ get_tables(){
 get_profilesetid(){
 PROFILESETNAME=${1}
 
-RESPONSE=$(curl -s -X GET -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' ${MASKING_ENGINE}/profile-sets)
+RESPONSE=$($CURL -s -X GET -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' ${MASKING_ENGINE}/profile-sets)
 check_error ${RESPONSE}
 PROFILESETID=$(echo ${RESPONSE} | ${JQ} -r ".responseList[] | select(.profileSetName == \"${PROFILESETNAME}\") | .profileSetId")
 
@@ -254,7 +248,7 @@ PROFILEJOBNAME=${1}
 PROFILESETID=${2}
 RULESETID=${3}
 
-curl -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/profile-jobs <<EOF
+$CURL -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/profile-jobs <<EOF
 {
   "jobName": "${PROFILEJOBNAME}",
   "profileSetId": ${PROFILESETID},
@@ -271,7 +265,7 @@ create_maskjob(){
 MASKJOBNAME=${1}
 RULESETID=${2}
 
-curl -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/masking-jobs <<EOF
+$CURL -s -X POST -H ''"${AUTH_HEADER}"'' -H 'Content-Type: application/json' -H 'Accept: application/json' --data @- ${MASKING_ENGINE}/masking-jobs <<EOF
 {
   "jobName": "${MASKJOBNAME}",
   "rulesetId": ${RULESETID},
@@ -293,7 +287,7 @@ EOF
 # ARGPARSER                    #
 ################################
 # Verifica se foi passado algum parametro
-[ "$1" ] || { help ; exit 1 ; }
+[ $1 =="-h" ] || { help ; exit 1 ; }
 
 # Verifica se o ${JQ} esta instalado
 if [ "$(uname -s)." == "Linux." ] 
@@ -307,74 +301,71 @@ fi
 [ -x "${JQ}" ] || { echo "jq not found. Please install 'jq' package and try again." ; exit 1 ; }
 
 # Tratamento dos Parametros
-for arg
-do
-    delim=""
-    case "$arg" in
-    #translate --gnu-long-options to -g (short options)
-      --profile-name)         args="${args}-p ";;
-      --application-name)     args="${args}-a ";;
-      --environment-name)     args="${args}-e ";;
-      --expressions-file)     args="${args}-f ";;
-      --domains-file)         args="${args}-d ";;
-      --connection-file)      args="${args}-c ";;
-      --ruleset-file)         args="${args}-r ";;
-      --masking-engine)       args="${args}-m ";;
-      --help)                 args="${args}-h ";;
-      #pass through anything else
-      *) [[ "${arg:0:1}" == "-" ]] || delim="\""
-         args="${args}${delim}${arg}${delim} ";;
-    esac
-done
-
-eval set -- $args
-
-while getopts ":hp:e:d:m:c:r:a:f:" PARAMETRO
-do
-    case $PARAMETRO in
-        h) help;;
-        p) PROFILENAME=${OPTARG[@]};;
-        a) APPLICATIONNAME=${OPTARG[@]};;
-        e) ENVIRONMENTNAME=${OPTARG[@]};;
-        f) EXPRESSFILE=${OPTARG[@]};;
-        d) DOMAINSFILE=${OPTARG[@]};;
-        c) CONNECTIONFILE=${OPTARG[@]};;
-        r) RULESETFILE=${OPTARG[@]};;
-        m) MASKING_ENGINE=${OPTARG[@]};;
-        :) echo "Option -$OPTARG requires an argument."; exit 1;;
-        *) echo $OPTARG is an unrecognized option ; echo $USAGE; exit 1;;
-    esac
-done
+#for arg
+#do
+#    delim=""
+#    case "$arg" in
+#    #translate --gnu-long-options to -g (short options)
+#      --profile-name)         args="${args}-p ";;
+#      --application-name)     args="${args}-a ";;
+#      --environment-name)     args="${args}-e ";;
+#      --expressions-file)     args="${args}-f ";;
+#      --domains-file)         args="${args}-d ";;
+#      --connection-file)      args="${args}-c ";;
+#      --ruleset-file)         args="${args}-r ";;
+#      --masking-engine)       args="${args}-m ";;
+#      --help)                 args="${args}-h ";;
+#      #pass through anything else
+#      *) [[ "${arg:0:1}" == "-" ]] || delim="\""
+#         args="${args}${delim}${arg}${delim} ";;
+#    esac
+#done
+#
+#eval set -- $args
+#
+#while getopts ":hp:e:d:m:c:r:a:f:" PARAMETRO
+#do
+#    case $PARAMETRO in
+#        h) help;;
+#        p) PROFILENAME=${OPTARG[@]};;
+#        a) APPLICATIONNAME=${OPTARG[@]};;
+#        e) ENVIRONMENTNAME=${OPTARG[@]};;
+#        f) EXPRESSFILE=${OPTARG[@]};;
+#        d) DOMAINSFILE=${OPTARG[@]};;
+#        c) CONNECTIONFILE=${OPTARG[@]};;
+#        r) RULESETFILE=${OPTARG[@]};;
+#        m) MASKING_ENGINE=${OPTARG[@]};;
+#        :) echo "Option -$OPTARG requires an argument."; exit 1;;
+#        *) echo $OPTARG is an unrecognized option ; echo $USAGE; exit 1;;
+#    esac
+#done
 
 ################################
 # MAIN                         #
 ################################
 if [ ${MASKING_ENGINE} ]
-  then
-    # Set masking engine variable from user input
-    MASKING_ENGINE="http://${MASKING_ENGINE}/masking/api"
-    
+then
     # Login on Masking Engine
     login
 
     if [ ${APPLICATIONNAME} ]
-      then
+    then
         # Create masking application
-        log "Creating application ${APPLICATIONNAME}...\n"
+        log "Creando Aplicación ${APPLICATIONNAME}...\n"
         ret=$(create_application ${APPLICATIONNAME})
     fi
 
     if [ ${ENVIRONMENTNAME} ]
-      then
+    then
         # Create masking environment 
-        log "Creating environment ${ENVIRONMENTNAME}...\n"
-        ret=$(create_environment ${ENVIRONMENTNAME} ${APPLICATIONNAME})
+        log "Creando Entorno ${ENVIRONMENTNAME}...\n"
+        ret=$(create_environment ${ENVIRONMENTNAME})
     fi
     
-    if [ ${EXPRESSFILE} ] && [ ${DOMAINSFILE} ]
-      then
+    if [ ${EXPRESSFILE} ] && [ ${DOMAINSFILE} ] && [ $PAIS = "TODOS" ]
+    then
         # Create Domains 
-        log "Creating domain ${NEW_DOMAIN}...\n"
+        log "Creando Dominio ${NEW_DOMAIN}...\n"
         while IFS=\; read -r NEW_DOMAIN CLASSIFICATION ALGORITHM
         do
           if [[ ! ${NEW_DOMAIN} =~ "#" ]]
@@ -384,11 +375,11 @@ if [ ${MASKING_ENGINE} ]
         done < ${DOMAINSFILE}
 
         # Create Expressions 
-        log "Creating expressions: \n"
+        log "Creando Expresiones: \n"
         while IFS=\; read -r EXPRESSNAME DOMAIN DATALEVEL REGEXP
         do
           if [[ ! ${EXPRESSNAME} =~ "#" ]]
-            then
+          then
               log "* ${EXPRESSNAME}\n" 0
               ret=$(add_expression ${DOMAIN} ${EXPRESSNAME} ${REGEXP} ${DATALEVEL} | tee -a $$.tmp)
           fi
@@ -406,63 +397,62 @@ if [ ${MASKING_ENGINE} ]
         EXPRESSID="7,8,11,22,23,49,50,${EXPRESSID}"
         
         # Add ProfileSet
-        log "Adding expressions ids ${EXPRESSID} to ${PROFILENAME}...\n"
+        log "Agregando Expresiones ids ${EXPRESSID} en ${PROFILENAME}...\n"
         ret=$(add_profileset "${PROFILENAME}" "${EXPRESSID}")
 
         # remove tmpfile
         rm -f $$.tmp
     fi
-    
-    if [ ${CONNECTIONFILE} ] && [ ${ENVIRONMENTNAME} ] && [ ${PROFILENAME} ]
-      then 
-        # Create connection environment
-        log "Getting environment id for ${ENVIRONMENTNAME}...\n"
-        ENVIRONMENTID=$(get_environmentid ${ENVIRONMENTNAME})
-
-        while IFS=\; read -r CONNECTORNAME DATABASETYPE HOST PORT SID USERNAME PASSWORD SCHEMANAME
-        do
-          if [[ ! ${CONNECTORNAME} =~ "#" ]]
-            then
-              log "Creating connection ${CONNECTORNAME} for environment ${ENVIRONMENTNAME}...\n"
-              ret=$(create_connection ${CONNECTORNAME} ${DATABASETYPE} ${ENVIRONMENTID} ${HOST} ${PORT} ${SID} ${USERNAME} ${PASSWORD} ${SCHEMANAME})
-              check_error ${ret}
-
-              log "Getting connector id for ${CONNECTORNAME}...\n"
-              CONNECTORID=$(get_connectorid ${CONNECTORNAME})
-
-              # Create RuleSet 
-              RULESETNAME="RS_${CONNECTORNAME}"
-              log "Creating ruleset ${RULESETNAME}...\n"
-              ret=$(create_ruleset ${RULESETNAME} ${CONNECTORID})
-              check_error ${ret}
-
-              log "Getting ruleset id for ${RULESETNAME}\n"
-              RULESETID=$(get_rulesetid ${RULESETNAME})
-
-              log "Getting tables from ${CONNECTORNAME} schema...\n"
-              TABLES=$(get_tables ${CONNECTORID})
-
-              log "Creating metadata for table:\n"
-              for TABLE in ${TABLES}
-              do
-                log "* ${TABLE}\n"
-                ret=$(create_tablemetadata ${TABLE} ${RULESETID} ${DATABASETYPE})
-                check_error ${ret}
-              done
-
-              # Create Job Profile
-              log "Getting profileset id ...\n"
-              PROFILESETID=$(get_profilesetid ${PROFILENAME})
-            
-              log "Creating profile job PR_JOB_${CONNECTORNAME}...\n"
-              ret=$(create_profilejob "PR_JOB_${CONNECTORNAME}" ${PROFILESETID} ${RULESETID})
-              check_error ${ret}
-
-              # Create Masking Job
-              log "Creating masking job MSK_JOB_${CONNECTORNAME}...\n"
-              ret=$(create_maskjob "MSK_JOB_${CONNECTORNAME}" ${RULESETID})
-              check_error ${ret}
-          fi
-        done < ${CONNECTIONFILE}
-    fi
-fi
+fi   
+#  if [ ${CONNECTIONFILE} ] && [ ${ENVIRONMENTNAME} ] && [ ${PROFILENAME} ]
+#     then 
+#       # Create connection environment
+#       log "Getting environment id for ${ENVIRONMENTNAME}...\n"
+#       ENVIRONMENTID=$(get_environmentid ${ENVIRONMENTNAME})
+#
+#       while IFS=\; read -r CONNECTORNAME DATABASETYPE HOST PORT SID USERNAME PASSWORD SCHEMANAME
+#       do
+#         if [[ ! ${CONNECTORNAME} =~ "#" ]]
+#           then
+#             log "Creando connection ${CONNECTORNAME} for environment ${ENVIRONMENTNAME}...\n"
+#             ret=$(create_connection ${CONNECTORNAME} ${DATABASETYPE} ${ENVIRONMENTID} ${HOST} ${PORT} ${SID} ${USERNAME} ${PASSWORD} ${SCHEMANAME})
+#             check_error ${ret}
+#
+#             log "Getting connector id for ${CONNECTORNAME}...\n"
+#             CONNECTORID=$(get_connectorid ${CONNECTORNAME})
+#
+#             # Create RuleSet 
+#             RULESETNAME="RS_${CONNECTORNAME}"
+#             log "Creando ruleset ${RULESETNAME}...\n"
+#             ret=$(create_ruleset ${RULESETNAME} ${CONNECTORID})
+#             check_error ${ret}
+#
+#             log "Getting ruleset id for ${RULESETNAME}\n"
+#             RULESETID=$(get_rulesetid ${RULESETNAME})
+#
+#             log "Getting tables from ${CONNECTORNAME} schema...\n"
+#             TABLES=$(get_tables ${CONNECTORID})
+#
+#             log "Creando metadata for table:\n"
+#             for TABLE in ${TABLES}
+#             do
+#               log "* ${TABLE}\n"
+#               ret=$(create_tablemetadata ${TABLE} ${RULESETID} ${DATABASETYPE})
+#               check_error ${ret}
+#             done
+#
+#             # Create Job Profile
+#             log "Getting profileset id ...\n"
+#             PROFILESETID=$(get_profilesetid ${PROFILENAME})
+#           
+#             log "Creando profile job PR_JOB_${CONNECTORNAME}...\n"
+#             ret=$(create_profilejob "PR_JOB_${CONNECTORNAME}" ${PROFILESETID} ${RULESETID})
+#             check_error ${ret}
+#
+#             # Create Masking Job
+#             log "Creando masking job MSK_JOB_${CONNECTORNAME}...\n"
+#             ret=$(create_maskjob "MSK_JOB_${CONNECTORNAME}" ${RULESETID})
+#             check_error ${ret}
+#         fi
+#       done < ${CONNECTIONFILE}
+#   fi
