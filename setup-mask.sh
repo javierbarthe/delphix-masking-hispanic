@@ -362,29 +362,55 @@ then
         ret=$(create_environment ${ENVIRONMENTNAME})
     fi
     
-    if [ ${EXPRESSFILE} ] && [ ${DOMAINSFILE} ] && [ $PAIS = "TODOS" ]
+    if [ ${EXPRESSFILE} ] && [ ${DOMAINSFILE} ]
     then
-        # Create Domains 
-        log "Creando Dominio ${NEW_DOMAIN}...\n"
-        while IFS=\; read -r NEW_DOMAIN CLASSIFICATION ALGORITHM
-        do
-          if [[ ! ${NEW_DOMAIN} =~ "#" ]]
-            then
-              ret=$(add_domain ${NEW_DOMAIN} ${CLASSIFICATION} ${ALGORITHM})
-          fi
-        done < ${DOMAINSFILE}
+        if [ $PAIS = "TODOS" ]
+        then
+          # Create Domains 
+          log "Creando Dominios...\n"
+          while IFS=\; read -r NEW_DOMAIN CLASSIFICATION ALGORITHM
+          do
+            if [[ ! ${NEW_DOMAIN} =~ "#" ]]
+              then
+                log "* ${NEW_DOMAIN}\n" 0
+                ret=$(add_domain ${NEW_DOMAIN} ${CLASSIFICATION} ${ALGORITHM})
+            fi
+          done < ${DOMAINSFILE}
 
-        # Create Expressions 
-        log "Creando Expresiones: \n"
-        while IFS=\; read -r EXPRESSNAME DOMAIN DATALEVEL REGEXP
-        do
-          if [[ ! ${EXPRESSNAME} =~ "#" ]]
-          then
-              log "* ${EXPRESSNAME}\n" 0
-              ret=$(add_expression ${DOMAIN} ${EXPRESSNAME} ${REGEXP} ${DATALEVEL} | tee -a $$.tmp)
-          fi
-        done < ${EXPRESSFILE}
-      
+          # Create Expressions 
+          log "Creando Expresiones: \n"
+          while IFS=\; read -r EXPRESSNAME DOMAIN DATALEVEL REGEXP
+          do
+            if [[ ! ${EXPRESSNAME} =~ "#" ]]
+            then
+                log "* ${EXPRESSNAME}\n" 0
+                ret=$(add_expression ${DOMAIN} ${EXPRESSNAME} ${REGEXP} ${DATALEVEL} | tee -a $$.tmp)
+            fi
+          done < ${EXPRESSFILE}
+        else
+          # Create Domains 
+          log "Creando Dominio ${NEW_DOMAIN}...\n"
+          while IFS=\; read -r NEW_DOMAIN CLASSIFICATION ALGORITHM
+          do
+            if [[ ! ${NEW_DOMAIN} =~ "#" ]]
+              then
+                ret=$(add_domain ${NEW_DOMAIN} ${CLASSIFICATION} ${ALGORITHM})
+            fi
+          #done < ${DOMAINSFILE}
+          done < <(grep ${PAIS}"_" ${DOMAINSFILE})
+
+          # Create Expressions 
+          log "Creando Expresiones: \n"
+          while IFS=\; read -r EXPRESSNAME DOMAIN DATALEVEL REGEXP
+          do
+            if [[ ! ${EXPRESSNAME} =~ "#" ]]
+            then
+                log "* ${EXPRESSNAME}\n" 0
+                ret=$(add_expression ${DOMAIN} ${EXPRESSNAME} ${REGEXP} ${DATALEVEL} | tee -a $$.tmp)
+            fi
+          #done < ${EXPRESSFILE}
+          done < <(grep ${PAIS}"_" ${EXPRESSFILE})
+        fi
         # Get Created Expression Ids
         # 7 - Creditcard
         # 8 - Creditcard
@@ -401,6 +427,7 @@ then
         ret=$(add_profileset "${PROFILENAME}" "${EXPRESSID}")
 
         # remove tmpfile
+        cat $$.tmp
         rm -f $$.tmp
     fi
 fi   
