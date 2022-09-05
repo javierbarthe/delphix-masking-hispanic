@@ -11,4 +11,8 @@
 #   No utiliza ningun parametro, todo es tomado desde CFG File (setup.cfg)
 #   Ejemplo de Ejecución: ./setup-mask.sh
 #   Para más información revise el archivo setup.cfg
+#   
+#   Para linux y MacOS puede ejecutarse sin ningun prereq.
+#   Para Windows, descargar MobaXterm: https://mobaxterm.mobatek.net/
+#
 ```
