@@ -296,6 +296,8 @@ if [ "$(uname -s)." == "Linux." ]
 elif [ "$(uname -s)." == "Darwin." ] 
   then
     JQ="./bin/jq-osx"
+else
+    JQ="./bin/jq64.exe"
 fi
     
 [ -x "${JQ}" ] || { echo "jq not found. Please install 'jq' package and try again." ; exit 1 ; }
