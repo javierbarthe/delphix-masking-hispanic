@@ -59,10 +59,14 @@ check_empty() {
 # Check if $1 is an object and if it has an 'errorMessage' specified. If so, print the object and exit.
 check_error() {
     # ${JQ} returns a literal null so we have to check againt that...
-    if [ "$(echo "$1" | ${JQ} -r 'if type=="object" then .errorMessage else "null" end')" != 'null' ]; then
-        echo $1
-        exit 1
-    fi
+	if [ -z "$(echo "$1" | ${JQ} -r '.errorMessage | select( . != null )')" ]
+	then
+      echo $1
+	  echo "LOGIN OK"
+	else
+      echo $1
+	  exit 1
+	fi
 }
 
 # Login and set the correct $AUTH_HEADER.
@@ -293,11 +297,14 @@ EOF
 if [ "$(uname -s)." == "Linux." ] 
   then 
     JQ="./bin/jq"
+	TMPFILE="./logLinux.txt"
 elif [ "$(uname -s)." == "Darwin." ] 
   then
     JQ="./bin/jq-osx"
+	TMPFILE="./logosx.txt"
 else
     JQ="./bin/jq64.exe"
+	TMPFILE="./logWin.txt"
 fi
     
 [ -x "${JQ}" ] || { echo "jq not found. Please install 'jq' package and try again." ; exit 1 ; }
@@ -354,14 +361,14 @@ then
     then
         # Create masking application
         log "Creando Aplicación ${APPLICATIONNAME}...\n"
-        ret=$(create_application ${APPLICATIONNAME})
+        ret=$(create_application ${APPLICATIONNAME}| tee -a ${TMPFILE})
     fi
 
     if [ ${ENVIRONMENTNAME} ]
     then
         # Create masking environment 
         log "Creando Entorno ${ENVIRONMENTNAME}...\n"
-        ret=$(create_environment ${ENVIRONMENTNAME})
+        ret=$(create_environment ${ENVIRONMENTNAME}| tee -a ${TMPFILE})
     fi
     
     if [ ${EXPRESSFILE} ] && [ ${DOMAINSFILE} ]
@@ -375,7 +382,8 @@ then
             if [[ ! ${NEW_DOMAIN} =~ "#" ]]
               then
                 log "* ${NEW_DOMAIN}\n" 0
-                ret=$(add_domain ${NEW_DOMAIN} ${CLASSIFICATION} ${ALGORITHM})
+				echo "${ALGORITHM}"
+                ret=$(add_domain ${NEW_DOMAIN} ${CLASSIFICATION} "${ALGORITHM}"| tee -a ${TMPFILE})
             fi
           done < ${DOMAINSFILE}
 
@@ -386,7 +394,7 @@ then
             if [[ ! ${EXPRESSNAME} =~ "#" ]]
             then
                 log "* ${EXPRESSNAME}\n" 0
-                ret=$(add_expression ${DOMAIN} ${EXPRESSNAME} ${REGEXP} ${DATALEVEL} | tee -a $$.tmp)
+                ret=$(add_expression ${DOMAIN} ${EXPRESSNAME} "${REGEXP}" ${DATALEVEL} | tee -a ${TMPFILE})
             fi
           done < ${EXPRESSFILE}
         else
@@ -396,7 +404,7 @@ then
           do
             if [[ ! ${NEW_DOMAIN} =~ "#" ]]
               then
-                ret=$(add_domain ${NEW_DOMAIN} ${CLASSIFICATION} ${ALGORITHM})
+                ret=$(add_domain ${NEW_DOMAIN} ${CLASSIFICATION} "${ALGORITHM}" | tee -a ${TMPFILE})
             fi
           #done < ${DOMAINSFILE}
           done < <(grep ${PAIS}"_" ${DOMAINSFILE})
@@ -408,7 +416,7 @@ then
             if [[ ! ${EXPRESSNAME} =~ "#" ]]
             then
                 log "* ${EXPRESSNAME}\n" 0
-                ret=$(add_expression ${DOMAIN} ${EXPRESSNAME} ${REGEXP} ${DATALEVEL} | tee -a $$.tmp)
+                ret=$(add_expression ${DOMAIN} ${EXPRESSNAME} "${REGEXP}" ${DATALEVEL} | tee -a ${TMPFILE})
             fi
           #done < ${EXPRESSFILE}
           done < <(grep ${PAIS}"_" ${EXPRESSFILE})
@@ -421,16 +429,16 @@ then
         # 23 - Email Data
         # 49 - Ip Address Data
         # 50 - Ip Address
-        EXPRESSID=$(egrep -o '"profileExpressionId":[0-9]+' $$.tmp | cut -d: -f2 | xargs | sed 's/ /,/g')
+        EXPRESSID=$(egrep -o '"profileExpressionId":[0-9][0-9]' ${TMPFILE} | cut -d: -f2 | xargs | sed 's/ /,/g')
         EXPRESSID="7,8,11,22,23,49,50,${EXPRESSID}"
         
         # Add ProfileSet
         log "Agregando Expresiones ids ${EXPRESSID} en ${PROFILENAME}...\n"
-        ret=$(add_profileset "${PROFILENAME}" "${EXPRESSID}")
+        ret=$(add_profileset "${PROFILENAME}" "${EXPRESSID}"| tee -a ${TMPFILE})
 
         # remove tmpfile
-        cat $$.tmp
-        rm -f $$.tmp
+        #cat ${TMPFILE}
+        #rm -f ${TMPFILE}
     fi
 fi   
 #  if [ ${CONNECTIONFILE} ] && [ ${ENVIRONMENTNAME} ] && [ ${PROFILENAME} ]
